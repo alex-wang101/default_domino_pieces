@@ -20,8 +20,11 @@ def clean_text(text):
     return text
 
 
-def extract_content_with_known_tags_classes(url, search_items):
-    response = requests.get(url)
+def extract_content_with_known_tags_classes(url, search_items, logger=None):
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (compatible; DominoPageScrapperPiece/1.0; +https://github.com/Tauffer-Consulting/default_domino_pieces)'
+    }
+    response = requests.get(url, headers=headers)
     if response.status_code == 200:
         soup = BeautifulSoup(response.text, 'html.parser')
         content = []
@@ -34,6 +37,8 @@ def extract_content_with_known_tags_classes(url, search_items):
                 content.append(element.get_text(separator=' ', strip=True))
         return clean_text(' '.join(content))
     else:
+        if logger:
+            logger.warning(f"PageScrapper got HTTP {response.status_code} from {url}")
         return ""
 
 
@@ -48,7 +53,7 @@ class PageScrapperPiece(BasePiece):
         self.logger.info(f"URL: {url}")
         self.logger.info(f"Search items: {search_items}")
 
-        content = extract_content_with_known_tags_classes(url, search_items)
+        content = extract_content_with_known_tags_classes(url, search_items, logger=self.logger)
 
         self.logger.info(f"Scrapped text: {content}")
 
