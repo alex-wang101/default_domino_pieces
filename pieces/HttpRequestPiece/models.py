@@ -1,6 +1,7 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from enum import Enum
 from typing import List
+import re
 
 
 class MethodTypes(str, Enum):
@@ -12,8 +13,19 @@ class MethodTypes(str, Enum):
 
 class InputModel(BaseModel):
     url: List[str] = Field(
-        description="List of URLs to make requests to."
+        description="URL(s) to make requests to. Multiple URLs may be separated by commas, semicolons, or whitespace."
     )
+
+    @field_validator('url', mode='before')
+    @classmethod
+    def split_delimited_string(cls, v):
+        if isinstance(v, str):
+            return [u.strip() for u in re.split(r'[\s,;]+', v) if u.strip()]
+        if isinstance(v, list) and len(v) == 1 and isinstance(v[0], str):
+            parts = [u.strip() for u in re.split(r'[\s,;]+', v[0]) if u.strip()]
+            if len(parts) > 1:
+                return parts
+        return v
     method: MethodTypes = Field(
         default=MethodTypes.GET,
         description="HTTP method to use."
