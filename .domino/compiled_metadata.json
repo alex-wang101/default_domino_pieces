@@ -1499,7 +1499,7 @@
             },
             "properties": {
                 "url": {
-                    "description": "List of URLs to make requests to.",
+                    "description": "URL(s) to make requests to. Multiple URLs may be separated by commas, semicolons, or whitespace.",
                     "items": {
                         "type": "string"
                     },
