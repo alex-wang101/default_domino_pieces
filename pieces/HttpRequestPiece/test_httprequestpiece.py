@@ -5,21 +5,21 @@ import json
 
 def test_httprequest_get():
     input_data = {
-        'url': 'https://jsonplaceholder.typicode.com/posts',
+        'url': ['https://jsonplaceholder.typicode.com/posts'],
         'method': 'GET'
     }
     piece_output = piece_dry_run(
         piece_name="HttpRequestPiece",
         input_data=input_data
     )
-    output_data = base64.decodebytes(piece_output['base64_bytes_data'].encode('utf-8'))
+    output_data = base64.decodebytes(piece_output['base64_bytes_data'][0].encode('utf-8'))
     output_data = json.loads(output_data)
     assert isinstance(output_data, list)
 
 
 def test_httprequest_post():
     input_data = {
-        'url': 'https://httpbin.org/post',
+        'url': ['https://httpbin.org/post'],
         'method': 'POST',
         'body_json_data': json.dumps({
             'key_1': 'domino',
@@ -30,7 +30,7 @@ def test_httprequest_post():
         piece_name="HttpRequestPiece",
         input_data=input_data
     )
-    output_data = base64.decodebytes(piece_output['base64_bytes_data'].encode('utf-8'))
+    output_data = base64.decodebytes(piece_output['base64_bytes_data'][0].encode('utf-8'))
     output_data = json.loads(output_data)
     assert output_data['json']['key_1'] == 'domino'
     assert output_data['json']['key_2'] == 'testing-post'
@@ -38,7 +38,7 @@ def test_httprequest_post():
 
 def test_httprequest_put():
     input_data = {
-        'url': 'https://httpbin.org/put',
+        'url': ['https://httpbin.org/put'],
         'method': 'PUT',
         'body_json_data': json.dumps({
             'key_1': 'domino',
@@ -49,7 +49,7 @@ def test_httprequest_put():
         piece_name="HttpRequestPiece",
         input_data=input_data
     )
-    output_data = base64.decodebytes(piece_output['base64_bytes_data'].encode('utf-8'))
+    output_data = base64.decodebytes(piece_output['base64_bytes_data'][0].encode('utf-8'))
     output_data = json.loads(output_data)
     assert output_data['json']['key_1'] == 'domino'
     assert output_data['json']['key_2'] == 'testing-put'
@@ -57,14 +57,33 @@ def test_httprequest_put():
 
 def test_httprequest_delete():
     input_data = {
-        'url': 'https://httpbin.org/delete',
+        'url': ['https://httpbin.org/delete'],
         'method': 'DELETE'
     }
     piece_output = piece_dry_run(
         piece_name="HttpRequestPiece",
         input_data=input_data
     )
-    output_data = base64.decodebytes(piece_output['base64_bytes_data'].encode('utf-8'))
+    output_data = base64.decodebytes(piece_output['base64_bytes_data'][0].encode('utf-8'))
     output_data = json.loads(output_data)
     print(output_data)
     assert output_data['url'] == 'https://httpbin.org/delete'
+
+
+def test_httprequest_get_list_of_urls():
+    input_data = {
+        'url': [
+            'https://jsonplaceholder.typicode.com/posts/1',
+            'https://jsonplaceholder.typicode.com/posts/2',
+        ],
+        'method': 'GET'
+    }
+    piece_output = piece_dry_run(
+        piece_name="HttpRequestPiece",
+        input_data=input_data
+    )
+    assert isinstance(piece_output['base64_bytes_data'], list)
+    assert len(piece_output['base64_bytes_data']) == 2
+    for b64 in piece_output['base64_bytes_data']:
+        decoded = json.loads(base64.decodebytes(b64.encode('utf-8')))
+        assert 'id' in decoded

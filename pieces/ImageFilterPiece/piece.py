@@ -59,65 +59,74 @@ class ImageFilterPiece(BasePiece):
         if apply_warm:
             all_filters.append('warm')
 
-        # Try to open image from file path or base64 encoded string
-        input_image = input_data.input_image
+        image_base64_string_results = []
+        image_file_path_results = []
 
         max_path_size = int(os.pathconf('/', 'PC_PATH_MAX'))
-        if len(input_image) < max_path_size and Path(input_image).exists() and Path(input_image).is_file():
-            image = Image.open(input_image)
-        else:
-            self.logger.info("Input image is not a file path, trying to decode as base64 string")
+
+        for i, input_image in enumerate(input_data.input_image):
+            if not input_image:
+                self.logger.warning(f"Skipping empty input at index {i}")
+                image_base64_string_results.append("")
+                image_file_path_results.append("")
+                continue
             try:
-                decoded_data = base64.b64decode(input_image)
-                image_stream = BytesIO(decoded_data)
-                image = Image.open(image_stream)
-                image.verify()
-                image = Image.open(image_stream)
-            except Exception:
-                raise ValueError("Input image is not a file path or a base64 encoded string")
+                if len(input_image) < max_path_size and Path(input_image).exists() and Path(input_image).is_file():
+                    image = Image.open(input_image)
+                else:
+                    self.logger.info(f"Input image at index {i} is not a file path, trying to decode as base64 string")
+                    try:
+                        decoded_data = base64.b64decode(input_image)
+                        image_stream = BytesIO(decoded_data)
+                        image = Image.open(image_stream)
+                        image.verify()
+                        image = Image.open(image_stream)
+                    except Exception:
+                        raise ValueError("Input image is not a file path or a base64 encoded string")
 
+                np_image = np.array(image, dtype=float)
 
-        # Convert Image to NumPy array
-        np_image = np.array(image, dtype=float)
+                self.logger.info(f"Applying filters to image {i}: {', '.join(all_filters)}")
+                for filter_name in all_filters:
+                    np_mask = np.array(filter_masks[filter_name], dtype=float)
+                    for y in range(np_image.shape[0]):
+                        for x in range(np_image.shape[1]):
+                            rgb = np_image[y, x, :3]
+                            new_rgb = np.dot(np_mask, rgb)
+                            np_image[y, x, :3] = new_rgb
+                    np_image = np.clip(np_image, 0, 255)
 
-        # Apply filters
-        self.logger.info(f"Applying filters: {', '.join(all_filters)}")
-        for filter_name in all_filters:
-            np_mask = np.array(filter_masks[filter_name], dtype=float)
-            for y in range(np_image.shape[0]):
-                for x in range(np_image.shape[1]):
-                    rgb = np_image[y, x, :3]
-                    new_rgb = np.dot(np_mask, rgb)
-                    np_image[y, x, :3] = new_rgb
-            # Clip values to be in valid range
-            np_image = np.clip(np_image, 0, 255)
+                np_image = np_image.astype(np.uint8)
+                modified_image = Image.fromarray(np_image)
 
-        # Convert back to uint8 and PIL image
-        np_image = np_image.astype(np.uint8)
-        modified_image = Image.fromarray(np_image)
+                image_file_path = ""
+                if input_data.output_type == "file" or input_data.output_type == "both":
+                    image_file_path = f"{self.results_path}/modified_image_{i}.png"
+                    modified_image.save(image_file_path)
 
-        # Save to file
-        image_file_path = ""
-        if input_data.output_type == "file" or input_data.output_type == "both":
-            image_file_path = f"{self.results_path}/modified_image.png"
-            modified_image.save(image_file_path)
+                image_base64_string = ""
+                if input_data.output_type == "base64_string" or input_data.output_type == "both":
+                    buffered = BytesIO()
+                    modified_image.save(buffered, format="PNG")
+                    image_base64_string = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-        # Convert to base64 string
-        image_base64_string = ""
-        if input_data.output_type == "base64_string" or input_data.output_type == "both":
-            buffered = BytesIO()
-            modified_image.save(buffered, format="PNG")
-            image_base64_string = base64.b64encode(buffered.getvalue()).decode('utf-8')
+                image_base64_string_results.append(image_base64_string)
+                image_file_path_results.append(image_file_path)
+            except Exception as e:
+                self.logger.warning(f"Failed to process image at index {i}: {e}")
+                image_base64_string_results.append("")
+                image_file_path_results.append("")
 
+        first_b64 = next((b for b in image_base64_string_results if b), "")
+        first_path = next((p for p in image_file_path_results if p), "")
+        if first_b64 or first_path:
+            self.display_result = {
+                "file_type": "png",
+                "base64_content": first_b64,
+                "file_path": first_path,
+            }
 
-        self.display_result = {
-            "file_type": "png",
-            "base64_content": image_base64_string,
-            "file_path": image_file_path
-        }
-
-        # Return output
         return OutputModel(
-            image_base64_string=image_base64_string,
-            image_file_path=image_file_path,
+            image_base64_string=image_base64_string_results,
+            image_file_path=image_file_path_results,
         )
