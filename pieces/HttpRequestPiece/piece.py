@@ -8,6 +8,9 @@ import json
 class HttpRequestPiece(BasePiece):
     def piece_function(self, input_data: InputModel):
 
+        self.logger.info(f"HttpRequestPiece received url field: type={type(input_data.url).__name__}, value={input_data.url!r}")
+        self.logger.info(f"Number of URLs to process: {len(input_data.url) if isinstance(input_data.url, list) else 'N/A (not a list)'}")
+
         method = input_data.method
 
         headers = {}
